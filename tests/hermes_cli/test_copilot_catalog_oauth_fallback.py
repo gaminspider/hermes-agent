@@ -27,12 +27,9 @@ class TestCopilotCatalogApiKeyResolution:
             return_value=[{"access_token": "gho_abc123"}],
         ), patch(
             "hermes_cli.copilot_auth.exchange_copilot_token",
-            return_value=("tid_exchanged_xyz", 1234567890.0),
+            return_value=("tid_exchanged_xyz", 1234567890.0, None),
         ):
             assert _resolve_copilot_catalog_api_key() == "tid_exchanged_xyz"
-
-
-
 
     def test_skips_pool_entry_that_fails_to_exchange(self):
         """If the first entry won't exchange, try the next — an unsupported pool[0]
@@ -43,7 +40,7 @@ class TestCopilotCatalogApiKeyResolution:
             attempts.append(raw_token)
             if raw_token == "gho_unsupported_account":
                 raise ValueError("Copilot token exchange failed: HTTP 401")
-            return ("tid_from_second", 1234567890.0)
+            return ("tid_from_second", 1234567890.0, None)
 
         with patch(
             "hermes_cli.auth.resolve_api_key_provider_credentials",

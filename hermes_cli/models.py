@@ -2667,7 +2667,7 @@ def _resolve_copilot_catalog_api_key() -> str:
             if not valid:
                 continue
             try:
-                api_token, _expires_at = exchange_copilot_token(raw)
+                api_token, _expires_at, _base_url = exchange_copilot_token(raw)
             except Exception:
                 continue
             if api_token:
