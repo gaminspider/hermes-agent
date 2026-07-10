@@ -27,6 +27,20 @@ _HERMES_USER_AGENT = f"hermes-cli/{_HERMES_VERSION}"
 
 COPILOT_BASE_URL = "https://api.githubcopilot.com"
 COPILOT_MODELS_URL = f"{COPILOT_BASE_URL}/models"
+
+
+def copilot_base_url() -> str:
+    """Effective Copilot base URL — tenant-aware (COPILOT_GH_HOST / _API_BASE_URL)."""
+    try:
+        from hermes_cli.copilot_auth import copilot_api_base_url
+
+        return copilot_api_base_url()
+    except ImportError:
+        return COPILOT_BASE_URL
+
+
+def copilot_models_url() -> str:
+    return copilot_base_url() + "/models"
 COPILOT_EDITOR_VERSION = "vscode/1.104.1"
 COPILOT_REASONING_EFFORTS_GPT5 = ["minimal", "low", "medium", "high"]
 COPILOT_REASONING_EFFORTS_O_SERIES = ["low", "medium", "high"]
@@ -3365,7 +3379,7 @@ def fetch_github_model_catalog(
     attempts.append(copilot_default_headers())
 
     for headers in attempts:
-        req = urllib.request.Request(COPILOT_MODELS_URL, headers=headers)
+        req = urllib.request.Request(copilot_models_url(), headers=headers)
         try:
             with _urlopen_model_catalog_request(req, timeout=timeout) as resp:
                 data = json.loads(resp.read().decode())
@@ -3436,6 +3450,7 @@ def _is_github_models_base_url(base_url: Optional[str]) -> bool:
     normalized = (base_url or "").strip().rstrip("/").lower()
     return (
         normalized.startswith(COPILOT_BASE_URL)
+        or normalized.startswith(copilot_base_url().lower())
         or normalized.startswith("https://models.github.ai/inference")
         or normalized.startswith("https://models.inference.ai.azure.com")
     )
@@ -4165,8 +4180,8 @@ def probe_api_models(
         models = _fetch_github_models(api_key=api_key, timeout=timeout)
         return {
             "models": models,
-            "probed_url": COPILOT_MODELS_URL,
-            "resolved_base_url": COPILOT_BASE_URL,
+            "probed_url": copilot_models_url(),
+            "resolved_base_url": copilot_base_url(),
             "suggested_base_url": None,
             "used_fallback": False,
         }
@@ -4189,7 +4204,7 @@ def probe_api_models(
         headers["anthropic-version"] = "2023-06-01"
     elif api_key:
         headers["Authorization"] = f"Bearer {api_key}"
-    if normalized.startswith(COPILOT_BASE_URL):
+    if normalized.startswith(COPILOT_BASE_URL) or normalized.startswith(copilot_base_url().lower()):
         headers.update(copilot_default_headers())
     if isinstance(request_headers, dict):
         # Per-provider custom headers can contain auth/proxy secrets. Merge

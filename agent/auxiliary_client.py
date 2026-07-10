@@ -6349,8 +6349,8 @@ def auxiliary_max_tokens_param(value: int, *, model: Optional[str] = None) -> di
             and _read_nous_auth() is None
             and (
                 _custom_host == "api.openai.com"
-                or _custom_host == "api.githubcopilot.com"
                 or _custom_host.endswith(".githubcopilot.com")
+                or base_url_host_matches(custom_base, "api.githubcopilot.com")
             )):
         return {"max_completion_tokens": value}
     # ...and for any caller serving a newer OpenAI-family model by name.

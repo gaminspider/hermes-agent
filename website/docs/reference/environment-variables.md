@@ -33,6 +33,8 @@ Hermes reads environment variables from the process environment and, for user-ma
 | `HERMES_COPILOT_ACP_ARGS` | Override Copilot ACP arguments (default: `--acp --stdio`) |
 | `COPILOT_ACP_BASE_URL` | Override Copilot ACP base URL |
 | `COPILOT_API_BASE_URL` | Override the Copilot API base URL (`copilot` provider) |
+| `COPILOT_GH_HOST` | GitHub host for Copilot auth — set to a GHE.com data-residency tenant (e.g. `acme.ghe.com`) to use `gh auth token --hostname` and derive the tenant Copilot API base URL |
+| `COPILOT_INTEGRATION_ID` | Override the `Copilot-Integration-Id` header (default: `vscode-chat`; `copilot-developer-cli` when `COPILOT_GH_HOST` targets a GHE.com tenant) |
 | `GLM_API_KEY` | z.ai / ZhipuAI GLM API key ([z.ai](https://z.ai)) |
 | `ZAI_API_KEY` | Alias for `GLM_API_KEY` |
 | `Z_AI_API_KEY` | Alias for `GLM_API_KEY` |

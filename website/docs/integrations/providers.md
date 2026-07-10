@@ -191,6 +191,16 @@ Some older community proxies use `api.github.com/copilot_internal/v2/token` exch
 
 **API routing**: GPT-5+ models (except `gpt-5-mini`) automatically use the Responses API. All other models (GPT-4o, Claude, Gemini, etc.) use Chat Completions. Models are auto-detected from the live Copilot catalog.
 
+#### GitHub Enterprise Cloud with data residency (GHE.com)
+
+GHE.com data-residency tenants serve the Copilot API from `copilot-api.<tenant>.ghe.com` instead of `api.githubcopilot.com`, and accept the raw GitHub token directly (the tenant has no `copilot_internal/v2/token` exchange endpoint). To use a tenant account, set in `~/.hermes/.env`:
+
+```ini
+COPILOT_GH_HOST=acme.ghe.com
+```
+
+This makes Hermes resolve the token via `gh auth token --hostname acme.ghe.com` (log in first with `gh auth login --hostname acme.ghe.com`), derive the API base URL `https://copilot-api.acme.ghe.com`, and identify itself with `Copilot-Integration-Id: copilot-developer-cli` — the integration id of the GitHub Copilot CLI, which Hermes matches in credential search order and direct-token auth. Tenants serve CLI-class clients the account's full model catalog; editor-chat integration ids receive a reduced legacy set. Both the base URL and the integration id can be overridden explicitly with `COPILOT_API_BASE_URL` / `COPILOT_INTEGRATION_ID`.
+
 **`copilot-acp` — Copilot ACP agent backend**. Spawns the local Copilot CLI as a subprocess:
 
 ```bash

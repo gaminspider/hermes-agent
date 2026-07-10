@@ -619,4 +619,34 @@ def base_url_host_matches(base_url: str, domain: str) -> bool:
     domain = (domain or "").strip().lower().rstrip(".")
     if not domain:
         return False
-    return hostname == domain or hostname.endswith("." + domain)
+    if hostname == domain or hostname.endswith("." + domain):
+        return True
+    # GHE.com data-residency tenants serve the Copilot API from
+    # copilot-api.<tenant>.ghe.com. Treat that host as an alias of the
+    # canonical Copilot hosts so every api_mode / header gate keyed on
+    # githubcopilot.com (bare or api.-prefixed) applies to tenant
+    # deployments unchanged.
+    if domain in ("api.githubcopilot.com", "githubcopilot.com"):
+        tenant = _copilot_tenant_api_host()
+        if tenant and hostname == tenant:
+            return True
+    return False
+
+
+def _copilot_tenant_api_host() -> str:
+    """Hostname of a configured GHE.com tenant Copilot API, or ``""``.
+
+    Mirrors hermes_cli.copilot_auth.copilot_api_base_url() without importing
+    it (utils must stay dependency-free): COPILOT_API_BASE_URL wins, else
+    derive copilot-api.<host> from COPILOT_GH_HOST.
+    """
+    override = os.environ.get("COPILOT_API_BASE_URL", "").strip()
+    if override:
+        return base_url_hostname(override)
+    host = os.environ.get("COPILOT_GH_HOST", "").strip().lower().rstrip("/")
+    for prefix in ("https://", "http://"):
+        if host.startswith(prefix):
+            host = host[len(prefix):]
+    if host and host != "github.com":
+        return f"copilot-api.{host}"
+    return ""

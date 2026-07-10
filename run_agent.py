@@ -1338,7 +1338,13 @@ class AIAgent:
             )
         if not hostname:
             return False
-        return hostname == "api.githubcopilot.com" or hostname.endswith(".githubcopilot.com")
+        # Accept the canonical host, plan-specific *.githubcopilot.com
+        # subdomains (enterprise/business proxies), and a configured
+        # GHE.com tenant host (via the base_url_host_matches alias).
+        return (
+            hostname.endswith(".githubcopilot.com")
+            or base_url_host_matches(hostname, "api.githubcopilot.com")
+        )
 
     def _resolved_api_call_timeout(self) -> float:
         """Resolve the effective per-call request timeout in seconds.
@@ -1481,7 +1487,7 @@ class AIAgent:
     def _is_copilot_url(self) -> bool:
         """Return True when the base URL targets GitHub Copilot or GitHub Models."""
         return (
-            "api.githubcopilot.com" in self._base_url_lower
+            base_url_host_matches(self._base_url_lower, "githubcopilot.com")
             or "models.github.ai" in self._base_url_lower
         )
 

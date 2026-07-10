@@ -63,11 +63,20 @@ class CopilotProfile(ProviderProfile):
         return extra_body, {}
 
 
+def _base_url() -> str:
+    try:
+        from hermes_cli.copilot_auth import copilot_api_base_url
+
+        return copilot_api_base_url()
+    except ImportError:
+        return "https://api.githubcopilot.com"
+
+
 copilot = CopilotProfile(
     name="copilot",
     aliases=("github-copilot", "github-models", "github-model", "github"),
     env_vars=("COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"),
-    base_url="https://api.githubcopilot.com",
+    base_url=_base_url(),
     auth_type="copilot",
 )
 

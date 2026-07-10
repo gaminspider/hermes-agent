@@ -46,6 +46,57 @@ _SUPPORTED_PREFIXES = ("gho_", "github_pat_", "ghu_")
 # Env var search order (matches Copilot CLI)
 COPILOT_ENV_VARS = ("COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN")
 
+# Public default Copilot API host; GHE.com data-residency tenants use
+# copilot-api.<tenant>.ghe.com instead (see copilot_api_base_url()).
+_DEFAULT_COPILOT_API_BASE_URL = "https://api.githubcopilot.com"
+
+
+def copilot_gh_host() -> str:
+    """Return the configured GitHub host for Copilot auth (COPILOT_GH_HOST).
+
+    Empty string means the default github.com. A GHE.com data-residency
+    tenant is e.g. ``mccolls-transport.ghe.com``.
+    """
+    host = os.getenv("COPILOT_GH_HOST", "").strip().lower().rstrip("/")
+    for prefix in ("https://", "http://"):
+        if host.startswith(prefix):
+            host = host[len(prefix):]
+    return "" if host == "github.com" else host
+
+
+def is_ghe_tenant() -> bool:
+    """True when Copilot auth targets a GHE.com data-residency tenant."""
+    return bool(copilot_gh_host())
+
+
+def copilot_api_base_url() -> str:
+    """Return the Copilot inference API base URL.
+
+    Resolution order: COPILOT_API_BASE_URL env override, then
+    ``https://copilot-api.<COPILOT_GH_HOST>`` for GHE.com tenants, then the
+    public ``https://api.githubcopilot.com``.
+    """
+    override = os.getenv("COPILOT_API_BASE_URL", "").strip().rstrip("/")
+    if override:
+        return override
+    host = copilot_gh_host()
+    if host:
+        return f"https://copilot-api.{host}"
+    return _DEFAULT_COPILOT_API_BASE_URL
+
+
+def copilot_integration_id() -> str:
+    """Return the Copilot-Integration-Id header value.
+
+    GHE.com tenants gate the model catalog by integration id: ``vscode-chat``
+    only exposes a small legacy set, while ``copilot-developer-cli`` (the id
+    the GitHub Copilot CLI sends) exposes the full account catalog.
+    """
+    override = os.getenv("COPILOT_INTEGRATION_ID", "").strip()
+    if override:
+        return override
+    return "copilot-developer-cli" if is_ghe_tenant() else "vscode-chat"
+
 # Polling constants
 _DEVICE_CODE_POLL_INTERVAL = 5  # seconds
 _DEVICE_CODE_POLL_SAFETY_MARGIN = 3  # seconds
@@ -322,6 +373,12 @@ def exchange_copilot_token(raw_token: str, *, timeout: float = 10.0) -> tuple[st
     """
     import urllib.request
 
+    # GHE.com data-residency tenants don't expose copilot_internal/v2/token;
+    # their copilot-api host accepts the raw gho_ token directly. Skip the
+    # exchange so every request doesn't pay a doomed round trip to github.com.
+    if is_ghe_tenant():
+        return raw_token, time.time() + 1800, copilot_api_base_url()
+
     fp = _token_fingerprint(raw_token)
 
     # Check cache first
@@ -448,7 +505,7 @@ def copilot_request_headers(
     headers: dict[str, str] = {
         "Editor-Version": "vscode/1.104.1",
         "User-Agent": "HermesAgent/1.0",
-        "Copilot-Integration-Id": "vscode-chat",
+        "Copilot-Integration-Id": copilot_integration_id(),
         "Openai-Intent": "conversation-edits",
         "x-initiator": "agent" if is_agent_turn else "user",
     }

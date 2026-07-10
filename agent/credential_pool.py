@@ -2340,11 +2340,16 @@ def _seed_from_singletons(provider: str, entries: List[PooledCredential]) -> Tup
                 if not _is_suppressed(provider, source_name):
                     active_sources.add(source_name)
                     pconfig = PROVIDER_REGISTRY.get(provider)
-                    # Use enterprise base URL from token exchange if available,
-                    # otherwise fall back to the provider's default.
-                    effective_base_url = enterprise_base_url or (
-                        pconfig.inference_base_url if pconfig else ""
-                    )
+                    from hermes_cli.copilot_auth import copilot_api_base_url, is_ghe_tenant
+                    # Explicitly configured GHE tenant / base-url override wins;
+                    # otherwise use the enterprise base URL advertised by the
+                    # token exchange; otherwise the provider's default.
+                    if is_ghe_tenant() or os.getenv("COPILOT_API_BASE_URL", "").strip():
+                        effective_base_url = copilot_api_base_url()
+                    else:
+                        effective_base_url = enterprise_base_url or (
+                            pconfig.inference_base_url if pconfig else ""
+                        )
                     changed |= _upsert_entry(
                         entries,
                         provider,
