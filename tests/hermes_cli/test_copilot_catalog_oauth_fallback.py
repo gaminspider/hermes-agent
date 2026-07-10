@@ -37,7 +37,7 @@ class TestCopilotCatalogApiKeyResolution:
             return_value=[{"access_token": "gho_abc123"}],
         ), patch(
             "hermes_cli.copilot_auth.exchange_copilot_token",
-            return_value=("tid_exchanged_xyz", 1234567890.0),
+            return_value=("tid_exchanged_xyz", 1234567890.0, None),
         ):
             assert _resolve_copilot_catalog_api_key() == "tid_exchanged_xyz"
 
@@ -51,7 +51,7 @@ class TestCopilotCatalogApiKeyResolution:
             return_value=[{"access_token": "gho_xyz"}],
         ), patch(
             "hermes_cli.copilot_auth.exchange_copilot_token",
-            return_value=("tid_exchanged_xyz", 1234567890.0),
+            return_value=("tid_exchanged_xyz", 1234567890.0, None),
         ):
             assert _resolve_copilot_catalog_api_key() == "tid_exchanged_xyz"
 
@@ -85,7 +85,7 @@ class TestCopilotCatalogApiKeyResolution:
             ],
         ), patch(
             "hermes_cli.copilot_auth.exchange_copilot_token",
-            return_value=("tid_from_first", 1234567890.0),
+            return_value=("tid_from_first", 1234567890.0, None),
         ) as mock_exchange:
             assert _resolve_copilot_catalog_api_key() == "tid_from_first"
             mock_exchange.assert_called_once_with("gho_first_real_token")
@@ -99,7 +99,7 @@ class TestCopilotCatalogApiKeyResolution:
             attempts.append(raw_token)
             if raw_token == "gho_unsupported_account":
                 raise ValueError("Copilot token exchange failed: HTTP 401")
-            return ("tid_from_second", 1234567890.0)
+            return ("tid_from_second", 1234567890.0, None)
 
         with patch(
             "hermes_cli.auth.resolve_api_key_provider_credentials",
