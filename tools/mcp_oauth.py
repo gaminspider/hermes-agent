@@ -125,9 +125,10 @@ def _ensure_sdk_loaded() -> bool:
     return True
 
 try:
-    from pydantic import AnyUrl
+    from pydantic import AnyUrl, PrivateAttr
 except ImportError:
     AnyUrl = None  # type: ignore[assignment, misc]
+    PrivateAttr = None  # type: ignore[assignment, misc]
 
 
 # ---------------------------------------------------------------------------
@@ -1184,6 +1185,46 @@ def apply_oauth_provider_defaults(
     return cfg
 
 
+_PINNED_SCOPE_CLS: Any = None
+
+
+def _pinned_scope_metadata_cls() -> type:
+    """Return (building once) an ``OAuthClientMetadata`` that keeps its scope.
+
+    The MCP SDK rewrites ``client_metadata.scope`` from the server's discovery
+    documents on every 401 (``utils.get_client_metadata_scopes``), so a scope
+    set in config.yaml is silently discarded whenever the resource advertises
+    ``scopes_supported``. That loses any scope the *authorization server*
+    needs but the resource does not list -- notably Entra ID's
+    ``offline_access``, without which no refresh token is issued and every
+    token expiry forces a fresh browser flow (fatal for the non-interactive
+    gateway). Keep the configured scopes and union in whatever discovery adds.
+    """
+    global _PINNED_SCOPE_CLS
+    if _PINNED_SCOPE_CLS is not None:
+        return _PINNED_SCOPE_CLS
+
+    class _PinnedScopeClientMetadata(OAuthClientMetadata):  # type: ignore[misc, valid-type]
+        _pinned_scope: str | None = PrivateAttr(default=None)
+
+        def __setattr__(self, name: str, value: Any) -> None:
+            if name == "scope":
+                try:
+                    pinned = self._pinned_scope
+                except AttributeError:
+                    pinned = None  # still inside pydantic's own __init__
+                if pinned:
+                    merged = list(dict.fromkeys(pinned.split()))
+                    for token in (value or "").split():
+                        if token not in merged:
+                            merged.append(token)
+                    value = " ".join(merged)
+            super().__setattr__(name, value)
+
+    _PINNED_SCOPE_CLS = _PinnedScopeClientMetadata
+    return _PINNED_SCOPE_CLS
+
+
 def _build_client_metadata(cfg: dict) -> "OAuthClientMetadata":
     """Build OAuthClientMetadata from the oauth config dict.
 
@@ -1217,7 +1258,12 @@ def _build_client_metadata(cfg: dict) -> "OAuthClientMetadata":
     if scope:
         metadata_kwargs["scope"] = scope
 
-    return OAuthClientMetadata.model_validate(metadata_kwargs)
+    if not scope or PrivateAttr is None:
+        return OAuthClientMetadata.model_validate(metadata_kwargs)
+
+    metadata = _pinned_scope_metadata_cls().model_validate(metadata_kwargs)
+    metadata._pinned_scope = scope
+    return metadata
 
 
 def _maybe_preregister_client(
